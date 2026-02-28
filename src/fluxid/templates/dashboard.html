@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ app_name }} Dashboard</title>
+    <meta http-equiv="refresh" content="{{ refresh_seconds }}" />
+    <style>
+      body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; }
+      .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+      .card { background: #1e293b; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 6px 8px; border-bottom: 1px solid #334155; font-size: 13px; }
+      th { text-align: left; color: #94a3b8; }
+      .error { color: #fca5a5; }
+      .muted { color: #94a3b8; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>{{ app_name }} live dashboard</h1>
+      <p class="muted">Generated at {{ generated_at }} · auto refresh {{ refresh_seconds }}s</p>
+
+      {% if error_message %}
+      <div class="card"><p class="error">{{ error_message }}</p></div>
+      {% endif %}
+
+      {% for snap in snapshots %}
+      <div class="card">
+        <h2>{{ snap.display_name }} ({{ snap.code }})</h2>
+        <p>
+          Spot: <strong>{{ '%.2f'|format(snap.spot.ltp) }}</strong> |
+          Futures: <strong>{{ '%.2f'|format(snap.future.ltp) }}</strong> |
+          ATM: <strong>{{ snap.atm_strike }}</strong>
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>LTP</th>
+              <th>Change</th>
+              <th>% Change</th>
+              <th>Volume</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for option in snap.option_quotes %}
+            <tr>
+              <td>{{ option.symbol }}</td>
+              <td>{{ '%.2f'|format(option.ltp) }}</td>
+              <td>{{ option.change if option.change is not none else '-' }}</td>
+              <td>{{ option.pct_change if option.pct_change is not none else '-' }}</td>
+              <td>{{ option.volume if option.volume is not none else '-' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endfor %}
+    </div>
+  </body>
+</html>
