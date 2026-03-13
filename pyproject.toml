@@ -1,7 +1,7 @@
 [project]
 name = "fluxid"
 version = "0.1.0"
-description = "Live NIFTY/BANKNIFTY dashboard using Kodak Neo market data"
+description = "Live NIFTY/BANKNIFTY dashboard using Kotak Neo market data"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

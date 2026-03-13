@@ -78,7 +78,7 @@ PY
 
 If this fails, update `src/fluxid/neo_client.py` endpoint/query-key mapping to match your account's exact Neo API contract.
 
-## Notes for Kodak/Kotak Neo API integration
+## Notes for Kotak Neo API integration
 
 API contracts can vary by account/app version. Fluxid includes a resilient adapter (`NeoApiClient`) with fallback endpoint and query-key attempts. If your account uses different paths, update `NeoApiClient._fetch_quote_payload()` in `src/fluxid/neo_client.py`.
 
