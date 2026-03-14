@@ -78,6 +78,10 @@ PY
 
 If this fails, update `src/fluxid/neo_client.py` endpoint/query-key mapping to match your account's exact Neo API contract.
 
+## Docker installation
+
+If you need Docker for local tooling, use the cross-platform installation steps (including full Windows + WSL2 setup) in `docs/local-deployment.md` under **"Docker installation (macOS/Linux + Windows)"`.
+
 ## Notes for Kotak Neo API integration
 
 API contracts can vary by account/app version. Fluxid includes a resilient adapter (`NeoApiClient`) with fallback endpoint and query-key attempts. If your account uses different paths, update `NeoApiClient._fetch_quote_payload()` in `src/fluxid/neo_client.py`.
