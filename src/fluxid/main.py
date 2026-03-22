@@ -63,3 +63,31 @@ async def dashboard(request: Request) -> HTMLResponse:
             "app_name": settings.app_name,
         },
     )
+
+
+@app.get("/option-chain", response_class=HTMLResponse)
+async def option_chain(request: Request) -> HTMLResponse:
+    market_open_day = is_market_day()
+    instruments: list[tuple[str, str, list]] = []
+    error_message = ""
+
+    if market_open_day:
+        try:
+            instruments = await service.load_option_chain_ohlc_data()
+        except NeoApiError as exc:
+            error_message = str(exc)
+    else:
+        error_message = "Market is closed today. Live feed is active only on market days."
+
+    return templates.TemplateResponse(
+        request=request,
+        name="option_chain.html",
+        context={
+            "instruments": instruments,
+            "market_open_day": market_open_day,
+            "error_message": error_message,
+            "generated_at": datetime.now(),
+            "refresh_seconds": settings.refresh_seconds,
+            "app_name": settings.app_name,
+        },
+    )

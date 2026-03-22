@@ -19,6 +19,21 @@ class OptionStrikeRow:
 
 
 @dataclass
+class OptionChainOHLCRow:
+    """OHLC data for CE and PE sides of a single option strike."""
+
+    strike: int
+    ce_symbol: str | None
+    ce_open: float | None
+    ce_high: float | None
+    ce_low: float | None
+    pe_symbol: str | None
+    pe_open: float | None
+    pe_high: float | None
+    pe_low: float | None
+
+
+@dataclass
 class InstrumentSnapshot:
     code: str
     display_name: str
@@ -91,6 +106,47 @@ def build_strike_rows(
     return rows
 
 
+def build_option_chain_ohlc_rows(
+    option_quotes: list[MarketQuote],
+) -> list[OptionChainOHLCRow]:
+    """Build OHLC rows pairing CE and PE quotes by strike.
+
+    Returns rows sorted ascending by strike.  Either side may be ``None``
+    when only one leg was returned by the feed.
+    """
+    ce_map: dict[int, MarketQuote] = {}
+    pe_map: dict[int, MarketQuote] = {}
+    for quote in option_quotes:
+        parsed = _parse_option_symbol(quote.symbol)
+        if parsed is None:
+            continue
+        strike, side = parsed
+        if side == "CE":
+            ce_map[strike] = quote
+        else:
+            pe_map[strike] = quote
+
+    all_strikes = sorted(ce_map.keys() | pe_map.keys())
+    rows: list[OptionChainOHLCRow] = []
+    for strike in all_strikes:
+        ce = ce_map.get(strike)
+        pe = pe_map.get(strike)
+        rows.append(
+            OptionChainOHLCRow(
+                strike=strike,
+                ce_symbol=ce.symbol if ce else None,
+                ce_open=ce.open if ce else None,
+                ce_high=ce.high if ce else None,
+                ce_low=ce.low if ce else None,
+                pe_symbol=pe.symbol if pe else None,
+                pe_open=pe.open if pe else None,
+                pe_high=pe.high if pe else None,
+                pe_low=pe.low if pe else None,
+            )
+        )
+    return rows
+
+
 class DashboardService:
     def __init__(self, neo: NeoApiClient, option_depth: int = 5) -> None:
         self.neo = neo
@@ -131,3 +187,27 @@ class DashboardService:
                 )
             )
         return snapshots
+
+    async def load_option_chain_ohlc_data(self) -> list[tuple[str, str, list[OptionChainOHLCRow]]]:
+        """Load option-chain OHLC data for all instruments.
+
+        Returns a list of ``(code, display_name, ohlc_rows)`` tuples,
+        one per instrument, where *ohlc_rows* pairs CE/PE quotes by strike
+        and exposes Open / High / Low for each side.
+        """
+        result: list[tuple[str, str, list[OptionChainOHLCRow]]] = []
+        for instrument in INSTRUMENTS:
+            spot_symbol = f"{instrument.code}_SPOT"
+            spot = await self.neo.get_quote(spot_symbol)
+            option_symbols = list(
+                expand_generic_symbols(
+                    index_code=instrument.code,
+                    spot_price=spot.ltp,
+                    step=instrument.option_step,
+                    depth=self.option_depth,
+                )
+            )
+            option_quotes = await asyncio.gather(*(self.neo.get_quote(symbol) for symbol in option_symbols))
+            ohlc_rows = build_option_chain_ohlc_rows(list(option_quotes))
+            result.append((instrument.code, instrument.display_name, ohlc_rows))
+        return result

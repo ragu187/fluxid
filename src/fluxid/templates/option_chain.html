@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ app_name }} Option Chain OHLC</title>
+    <meta http-equiv="refresh" content="{{ refresh_seconds }}" />
+    <style>
+      body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; }
+      .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+      .card { background: #1e293b; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+
+      /* ── Nav links ── */
+      .nav { margin-bottom: 16px; }
+      .nav a { color: #60a5fa; text-decoration: none; font-size: 13px; margin-right: 16px; }
+      .nav a:hover { text-decoration: underline; }
+
+      /* ── OHLC table ── */
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th { padding: 5px 8px; border-bottom: 2px solid #334155; text-transform: uppercase;
+           font-size: 10px; letter-spacing: 0.05em; text-align: center; }
+      td { padding: 5px 8px; border-bottom: 1px solid #1e293b; text-align: right; white-space: nowrap; }
+
+      /* column group headers */
+      .th-ce  { color: #60a5fa; }
+      .th-pe  { color: #fb923c; }
+      .th-str { color: #94a3b8; text-align: center; }
+
+      /* cell backgrounds by side */
+      .ce { background: rgba(96,165,250,0.06); }
+      .pe { background: rgba(251,146,60,0.06); }
+
+      /* Ticker / symbol cells */
+      .ticker-ce { text-align: left; color: #93c5fd; font-size: 11px; font-family: monospace; }
+      .ticker-pe { text-align: left; color: #fdba74; font-size: 11px; font-family: monospace; }
+
+      /* Strike column */
+      .strike-cell { text-align: center; background: #0f172a; color: #cbd5e1;
+                     font-size: 13px; font-weight: 600; }
+
+      /* misc */
+      .error { color: #fca5a5; }
+      .muted { color: #94a3b8; font-size: 12px; }
+      h2 { margin-top: 0; margin-bottom: 12px; font-size: 18px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="nav">
+        <a href="/">&#8592; Dashboard</a>
+        <a href="/option-chain">Option Chain OHLC</a>
+      </div>
+      <h1>{{ app_name }} &mdash; Option Chain OHLC</h1>
+      <p class="muted">Generated at {{ generated_at }} &middot; auto-refresh every {{ refresh_seconds }}s</p>
+
+      {% if error_message %}
+      <div class="card"><p class="error">{{ error_message }}</p></div>
+      {% endif %}
+
+      {% for code, display_name, ohlc_rows in instruments %}
+      <div class="card">
+        <h2>{{ display_name }} <span style="color:#64748b;font-size:14px;font-weight:400">({{ code }})</span></h2>
+
+        {% if ohlc_rows %}
+        <table>
+          <thead>
+            <tr>
+              <th colspan="4" class="th-ce">&#9654; CALL (CE)</th>
+              <th class="th-str">Strike</th>
+              <th colspan="4" class="th-pe">PUT (PE) &#9664;</th>
+            </tr>
+            <tr>
+              <th class="th-ce">Ticker</th>
+              <th class="th-ce">Open</th>
+              <th class="th-ce">High</th>
+              <th class="th-ce">Low</th>
+              <th class="th-str"></th>
+              <th class="th-pe">Ticker</th>
+              <th class="th-pe">Open</th>
+              <th class="th-pe">High</th>
+              <th class="th-pe">Low</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in ohlc_rows %}
+            <tr>
+
+              {# ── CE side ── #}
+              <td class="ce ticker-ce">{{ row.ce_symbol if row.ce_symbol else '-' }}</td>
+              <td class="ce">{{ '%.2f'|format(row.ce_open) if row.ce_open is not none else '-' }}</td>
+              <td class="ce">{{ '%.2f'|format(row.ce_high) if row.ce_high is not none else '-' }}</td>
+              <td class="ce">{{ '%.2f'|format(row.ce_low)  if row.ce_low  is not none else '-' }}</td>
+
+              {# ── Strike ── #}
+              <td class="strike-cell">{{ row.strike }}</td>
+
+              {# ── PE side ── #}
+              <td class="pe ticker-pe">{{ row.pe_symbol if row.pe_symbol else '-' }}</td>
+              <td class="pe">{{ '%.2f'|format(row.pe_open) if row.pe_open is not none else '-' }}</td>
+              <td class="pe">{{ '%.2f'|format(row.pe_high) if row.pe_high is not none else '-' }}</td>
+              <td class="pe">{{ '%.2f'|format(row.pe_low)  if row.pe_low  is not none else '-' }}</td>
+
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="muted">No option quotes available for this instrument.</p>
+        {% endif %}
+
+      </div>
+      {% endfor %}
+
+      {% if not instruments and not error_message %}
+      <div class="card"><p class="muted">No option chain data available.</p></div>
+      {% endif %}
+
+    </div>
+  </body>
+</html>
