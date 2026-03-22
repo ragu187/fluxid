@@ -7,6 +7,15 @@ Fluxid is a Python web app that shows live market snapshots for:
 
 The symbol generation logic is generic, so you can extend to more indices/instruments later.
 
+## Dashboard
+
+The dashboard presents each index instrument with:
+
+- **Summary bar** – Spot LTP, Futures LTP, ATM strike, and Futures–Spot basis; change and % change shown in green/red.
+- **Option chain table** – CE and PE quotes displayed side-by-side per strike row (CALL columns on the left, PUT columns on the right).  The ATM row is highlighted in amber; strikes below ATM are labelled **ITM** (in-the-money for calls), strikes above ATM are labelled **OTM**.
+- **Formatted numerics** – LTP to 2 d.p.; change values with explicit sign (`+`/`−`); volume shown compactly (e.g. `1.2M`, `500K`).
+- **Auto-refresh** – configurable via `FLUXID_REFRESH_SECONDS` (default 15 s).
+
 ## 1) Setup
 
 ```bash
