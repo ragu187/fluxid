@@ -9,17 +9,58 @@
       body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; }
       .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
       .card { background: #1e293b; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { padding: 6px 8px; border-bottom: 1px solid #334155; font-size: 13px; }
-      th { text-align: left; color: #94a3b8; }
+
+      /* ── Summary bar ── */
+      .summary { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+      .summary-item { background: #0f172a; border-radius: 8px; padding: 10px 16px; min-width: 120px; }
+      .summary-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+      .summary-value { font-size: 20px; font-weight: 700; }
+      .summary-change { font-size: 12px; margin-top: 2px; }
+
+      /* ── Option chain table ── */
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th { padding: 4px 6px; border-bottom: 2px solid #334155; text-transform: uppercase;
+           font-size: 10px; letter-spacing: 0.05em; text-align: center; }
+      td { padding: 4px 6px; border-bottom: 1px solid #1e293b; text-align: right; }
+
+      /* column group headers */
+      .th-ce  { color: #60a5fa; }
+      .th-pe  { color: #fb923c; }
+      .th-str { color: #94a3b8; text-align: center; }
+
+      /* cell backgrounds by side */
+      .ce { background: rgba(96,165,250,0.06); }
+      .pe { background: rgba(251,146,60,0.06); }
+
+      /* ATM row */
+      .atm td { background: rgba(234,179,8,0.13) !important; font-weight: 600; }
+      .atm .strike-cell { color: #fbbf24; }
+      .atm-badge { font-size: 9px; font-weight: 700; background: #fbbf24; color: #0f172a;
+                   padding: 1px 4px; border-radius: 3px; margin-left: 4px; vertical-align: middle; }
+
+      /* Moneyness labels below the strike number */
+      .mono-label { display: block; font-size: 9px; font-weight: 400; margin-top: 1px; }
+      .itm-label { color: #4ade80; }
+      .otm-label { color: #64748b; }
+
+      /* Strike column */
+      .strike-cell { text-align: center; background: #0f172a; color: #cbd5e1;
+                     font-size: 13px; font-weight: 600; white-space: nowrap; }
+
+      /* Change colouring */
+      .pos { color: #4ade80; }
+      .neg { color: #f87171; }
+
+      /* misc */
       .error { color: #fca5a5; }
       .muted { color: #94a3b8; font-size: 12px; }
+      h2 { margin-top: 0; margin-bottom: 12px; font-size: 18px; }
     </style>
   </head>
   <body>
     <div class="container">
       <h1>{{ app_name }} live dashboard</h1>
-      <p class="muted">Generated at {{ generated_at }} · auto refresh {{ refresh_seconds }}s</p>
+      <p class="muted">Generated at {{ generated_at }} &middot; auto-refresh every {{ refresh_seconds }}s</p>
 
       {% if error_message %}
       <div class="card"><p class="error">{{ error_message }}</p></div>
@@ -27,36 +68,115 @@
 
       {% for snap in snapshots %}
       <div class="card">
-        <h2>{{ snap.display_name }} ({{ snap.code }})</h2>
-        <p>
-          Spot: <strong>{{ '%.2f'|format(snap.spot.ltp) }}</strong> |
-          Futures: <strong>{{ '%.2f'|format(snap.future.ltp) }}</strong> |
-          ATM: <strong>{{ snap.atm_strike }}</strong>
-        </p>
+        <h2>{{ snap.display_name }} <span style="color:#64748b;font-size:14px;font-weight:400">({{ snap.code }})</span></h2>
+
+        <!-- ── Summary bar ── -->
+        <div class="summary">
+          <div class="summary-item">
+            <div class="summary-label">Spot</div>
+            <div class="summary-value">{{ '%.2f'|format(snap.spot.ltp) }}</div>
+            {% if snap.spot.change is not none %}
+            <div class="summary-change {{ 'pos' if snap.spot.change >= 0 else 'neg' }}">
+              {{ '%+.2f'|format(snap.spot.change) }}{% if snap.spot.pct_change is not none %} ({{ '%+.2f'|format(snap.spot.pct_change) }}%){% endif %}
+            </div>
+            {% endif %}
+          </div>
+
+          <div class="summary-item">
+            <div class="summary-label">Futures</div>
+            <div class="summary-value">{{ '%.2f'|format(snap.future.ltp) }}</div>
+            {% if snap.future.change is not none %}
+            <div class="summary-change {{ 'pos' if snap.future.change >= 0 else 'neg' }}">
+              {{ '%+.2f'|format(snap.future.change) }}{% if snap.future.pct_change is not none %} ({{ '%+.2f'|format(snap.future.pct_change) }}%){% endif %}
+            </div>
+            {% endif %}
+          </div>
+
+          <div class="summary-item">
+            <div class="summary-label">ATM Strike</div>
+            <div class="summary-value" style="color:#fbbf24">{{ snap.atm_strike }}</div>
+          </div>
+
+          <div class="summary-item">
+            <div class="summary-label">Basis (F&minus;S)</div>
+            {% set basis = snap.future.ltp - snap.spot.ltp %}
+            <div class="summary-value {{ 'pos' if basis >= 0 else 'neg' }}">{{ '%+.2f'|format(basis) }}</div>
+          </div>
+        </div>
+
+        <!-- ── Option chain ── -->
+        {% if snap.strike_rows %}
         <table>
           <thead>
             <tr>
-              <th>Symbol</th>
-              <th>LTP</th>
-              <th>Change</th>
-              <th>% Change</th>
-              <th>Volume</th>
+              <th colspan="4" class="th-ce">&#9654; CALL (CE)</th>
+              <th class="th-str">Strike</th>
+              <th colspan="4" class="th-pe">PUT (PE) &#9664;</th>
+            </tr>
+            <tr>
+              <th class="th-ce">LTP</th>
+              <th class="th-ce">Chg</th>
+              <th class="th-ce">Chg%</th>
+              <th class="th-ce">Vol</th>
+              <th class="th-str"></th>
+              <th class="th-pe">LTP</th>
+              <th class="th-pe">Chg</th>
+              <th class="th-pe">Chg%</th>
+              <th class="th-pe">Vol</th>
             </tr>
           </thead>
           <tbody>
-            {% for option in snap.option_quotes %}
-            <tr>
-              <td>{{ option.symbol }}</td>
-              <td>{{ '%.2f'|format(option.ltp) }}</td>
-              <td>{{ option.change if option.change is not none else '-' }}</td>
-              <td>{{ option.pct_change if option.pct_change is not none else '-' }}</td>
-              <td>{{ option.volume if option.volume is not none else '-' }}</td>
+            {% for row in snap.strike_rows %}
+            <tr class="{{ 'atm' if row.is_atm else '' }}">
+
+              {# ── CE side ── #}
+              {% if row.ce %}
+              <td class="ce">{{ '%.2f'|format(row.ce.ltp) }}</td>
+              <td class="ce {{ 'pos' if row.ce.change is not none and row.ce.change >= 0 else 'neg' if row.ce.change is not none }}">
+                {{ '%+.2f'|format(row.ce.change) if row.ce.change is not none else '-' }}</td>
+              <td class="ce {{ 'pos' if row.ce.pct_change is not none and row.ce.pct_change >= 0 else 'neg' if row.ce.pct_change is not none }}">
+                {{ '%+.2f%%'|format(row.ce.pct_change) if row.ce.pct_change is not none else '-' }}</td>
+              <td class="ce">{{ row.ce.volume | fmt_volume }}</td>
+              {% else %}
+              <td class="ce">-</td><td class="ce">-</td><td class="ce">-</td><td class="ce">-</td>
+              {% endif %}
+
+              {# ── Strike ── #}
+              <td class="strike-cell">
+                {{ row.strike }}
+                {% if row.is_atm %}<span class="atm-badge">ATM</span>{% endif %}
+                {% if not row.is_atm %}
+                <span class="mono-label {{ 'itm-label' if row.moneyness == 'ITM' else 'otm-label' }}">{{ row.moneyness }}</span>
+                {% endif %}
+              </td>
+
+              {# ── PE side ── #}
+              {% if row.pe %}
+              <td class="pe">{{ '%.2f'|format(row.pe.ltp) }}</td>
+              <td class="pe {{ 'pos' if row.pe.change is not none and row.pe.change >= 0 else 'neg' if row.pe.change is not none }}">
+                {{ '%+.2f'|format(row.pe.change) if row.pe.change is not none else '-' }}</td>
+              <td class="pe {{ 'pos' if row.pe.pct_change is not none and row.pe.pct_change >= 0 else 'neg' if row.pe.pct_change is not none }}">
+                {{ '%+.2f%%'|format(row.pe.pct_change) if row.pe.pct_change is not none else '-' }}</td>
+              <td class="pe">{{ row.pe.volume | fmt_volume }}</td>
+              {% else %}
+              <td class="pe">-</td><td class="pe">-</td><td class="pe">-</td><td class="pe">-</td>
+              {% endif %}
+
             </tr>
             {% endfor %}
           </tbody>
         </table>
+        {% else %}
+        <p class="muted">No option quotes available for this instrument.</p>
+        {% endif %}
+
       </div>
       {% endfor %}
+
+      {% if not snapshots and not error_message %}
+      <div class="card"><p class="muted">No snapshot data available.</p></div>
+      {% endif %}
+
     </div>
   </body>
 </html>

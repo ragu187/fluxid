@@ -14,6 +14,21 @@ from fluxid.service import DashboardService
 app = FastAPI(title=settings.app_name)
 templates = Jinja2Templates(directory="src/fluxid/templates")
 
+
+def _format_volume_compact(value: float | None) -> str:
+    """Format trading volume compactly: 1 234 567 → '1.2M', 5 000 → '5K'."""
+    if value is None:
+        return "-"
+    v = int(value)
+    if v >= 1_000_000:
+        return f"{v / 1_000_000:.1f}M"
+    if v >= 1_000:
+        return f"{v / 1_000:.0f}K"
+    return str(v)
+
+
+templates.env.filters["fmt_volume"] = _format_volume_compact
+
 neo = NeoApiClient(
     base_url=settings.neo_api_base_url,
     api_key=settings.neo_api_key,
