@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable
+from zoneinfo import ZoneInfo
+
+
+# Exchange timezone for NSE/BSE (Indian Standard Time, UTC+5:30).
+EXCHANGE_TZ: ZoneInfo = ZoneInfo("Asia/Kolkata")
 
 
 @dataclass(frozen=True)
@@ -19,16 +24,62 @@ INSTRUMENTS: list[IndexInstrument] = [
 ]
 
 
+def _now_in_exchange_tz() -> datetime:
+    """Return the current time expressed in the exchange timezone."""
+    return datetime.now(tz=timezone.utc).astimezone(EXCHANGE_TZ)
+
+
 def is_market_day(now: datetime | None = None) -> bool:
-    now = now or datetime.now()
+    """Return True when *now* falls on a weekday in the exchange timezone.
+
+    If *now* is ``None`` the current wall-clock time is used, converted to
+    the exchange timezone (Asia/Kolkata) before the weekday check.  If *now*
+    is a timezone-aware :class:`~datetime.datetime` it is converted to the
+    exchange timezone.  If *now* is a naive :class:`~datetime.datetime` it is
+    assumed to already be in the exchange timezone and is used as-is.
+    """
+    if now is None:
+        now = _now_in_exchange_tz()
+    elif now.tzinfo is not None:
+        # Aware datetime: convert to exchange timezone for a consistent check.
+        now = now.astimezone(EXCHANGE_TZ)
+    # Naive datetime is treated as already being in the exchange timezone.
     return now.weekday() < 5
 
 
 def nearest_strike(price: float, step: int) -> int:
+    """Return the strike price nearest to *price* on the *step* grid.
+
+    Args:
+        price: Underlying or futures price.
+        step:  Strike interval (must be a positive integer).
+
+    Raises:
+        ValueError: If *step* is not a positive integer.
+    """
+    if step <= 0:
+        raise ValueError(f"step must be a positive integer, got {step!r}")
     return int(round(price / step) * step)
 
 
 def option_strikes(atm: int, step: int, depth: int = 5) -> list[int]:
+    """Return the list of option strikes around *atm*.
+
+    Generates ``2 * depth + 1`` strikes evenly spaced by *step*, centred on
+    *atm* (i.e. from ``atm - depth * step`` to ``atm + depth * step``).
+
+    Args:
+        atm:   At-the-money strike.
+        step:  Strike interval (must be a positive integer).
+        depth: Number of strikes on each side of ATM (must be non-negative).
+
+    Raises:
+        ValueError: If *step* ≤ 0 or *depth* < 0.
+    """
+    if step <= 0:
+        raise ValueError(f"step must be a positive integer, got {step!r}")
+    if depth < 0:
+        raise ValueError(f"depth must be non-negative, got {depth!r}")
     strikes: list[int] = []
     for offset in range(-depth, depth + 1):
         strikes.append(atm + offset * step)
@@ -36,6 +87,21 @@ def option_strikes(atm: int, step: int, depth: int = 5) -> list[int]:
 
 
 def expand_generic_symbols(index_code: str, spot_price: float, step: int, depth: int = 5) -> Iterable[str]:
+    """Yield CE and PE option symbols for strikes around the ATM of *spot_price*.
+
+    Args:
+        index_code:  Instrument code, e.g. ``"NIFTY"``.
+        spot_price:  Current spot price used to derive ATM.
+        step:        Strike interval (must be a positive integer).
+        depth:       Number of strikes on each side of ATM (must be non-negative).
+
+    Raises:
+        ValueError: If *step* ≤ 0 or *depth* < 0.
+    """
+    if step <= 0:
+        raise ValueError(f"step must be a positive integer, got {step!r}")
+    if depth < 0:
+        raise ValueError(f"depth must be non-negative, got {depth!r}")
     atm = nearest_strike(spot_price, step)
     for strike in option_strikes(atm=atm, step=step, depth=depth):
         yield f"{index_code}_{strike}_CE"

@@ -24,7 +24,7 @@ cp .env.example .env
 Then edit `.env`:
 
 ```env
-FLUXID_NEO_API_KEY=your_kodak_neo_api_key
+FLUXID_NEO_API_KEY=your_kotak_neo_api_key
 FLUXID_NEO_ACCESS_TOKEN=optional_access_token
 # change if your contract uses a different host
 FLUXID_NEO_API_BASE_URL=https://api.kotaksecurities.com/neo
@@ -86,4 +86,4 @@ If you need Docker for local tooling, use the cross-platform installation steps 
 
 API contracts can vary by account/app version. Fluxid includes a resilient adapter (`NeoApiClient`) with fallback endpoint and query-key attempts. If your account uses different paths, update `NeoApiClient._fetch_quote_payload()` in `src/fluxid/neo_client.py`.
 
-The dashboard intentionally loads data only on market weekdays.
+The dashboard intentionally loads data only on market weekdays (evaluated in the Asia/Kolkata exchange timezone).

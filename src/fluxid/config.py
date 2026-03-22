@@ -10,9 +10,9 @@ class Settings(BaseSettings):
     app_name: str = "Fluxid"
     refresh_seconds: int = 15
 
-    # Kodak Neo API settings
+    # Kotak Neo API settings
     neo_api_base_url: str = "https://api.kotaksecurities.com/neo"
-    neo_api_key: str = Field(default="", description="Kodak/Kotak Neo API key")
+    neo_api_key: str = Field(default="", description="Kotak Neo API key")
     neo_access_token: str = Field(default="", description="Optional bearer token if required")
 
 
