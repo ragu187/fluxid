@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Exchange timezone for NSE/BSE (Indian Standard Time, UTC+5:30).
 EXCHANGE_TZ: ZoneInfo = ZoneInfo("Asia/Kolkata")
+US_EXCHANGE_TZ: ZoneInfo = ZoneInfo("America/New_York")
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,11 @@ def _now_in_exchange_tz() -> datetime:
     return datetime.now(tz=timezone.utc).astimezone(EXCHANGE_TZ)
 
 
+def _now_in_us_exchange_tz() -> datetime:
+    """Return the current time expressed in the US exchange timezone."""
+    return datetime.now(tz=timezone.utc).astimezone(US_EXCHANGE_TZ)
+
+
 def is_market_day(now: datetime | None = None) -> bool:
     """Return True when *now* falls on a weekday in the exchange timezone.
 
@@ -44,6 +50,15 @@ def is_market_day(now: datetime | None = None) -> bool:
         # Aware datetime: convert to exchange timezone for a consistent check.
         now = now.astimezone(EXCHANGE_TZ)
     # Naive datetime is treated as already being in the exchange timezone.
+    return now.weekday() < 5
+
+
+def is_us_market_day(now: datetime | None = None) -> bool:
+    """Return True when *now* falls on a weekday in US exchange timezone."""
+    if now is None:
+        now = _now_in_us_exchange_tz()
+    elif now.tzinfo is not None:
+        now = now.astimezone(US_EXCHANGE_TZ)
     return now.weekday() < 5
 
 

@@ -6,6 +6,7 @@ from fluxid.market import (
     EXCHANGE_TZ,
     expand_generic_symbols,
     is_market_day,
+    is_us_market_day,
     nearest_strike,
     option_strikes,
 )
@@ -73,6 +74,14 @@ def test_is_market_day_no_arg_returns_bool() -> None:
     # Smoke test: calling without argument must not raise and return a bool.
     result = is_market_day()
     assert isinstance(result, bool)
+
+
+def test_is_us_market_day_weekday() -> None:
+    assert is_us_market_day(datetime(2026, 1, 5)) is True
+
+
+def test_is_us_market_day_weekend() -> None:
+    assert is_us_market_day(datetime(2026, 1, 4)) is False
 
 
 # ---------------------------------------------------------------------------

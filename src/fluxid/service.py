@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
-from fluxid.market import INSTRUMENTS, expand_generic_symbols, nearest_strike
+from fluxid.config import settings
+from fluxid.market import INSTRUMENTS, expand_generic_symbols, is_market_day, is_us_market_day, nearest_strike
 from fluxid.neo_client import MarketQuote, NeoApiClient
 
 
@@ -42,6 +44,26 @@ class InstrumentSnapshot:
     atm_strike: int
     option_quotes: list[MarketQuote]
     strike_rows: list[OptionStrikeRow] = field(default_factory=list)
+
+
+@dataclass
+class TickerSnapshot:
+    symbol: str
+    display_name: str
+    ltp: float
+    change: float | None
+    pct_change: float | None
+    volume: float | None
+
+
+@dataclass
+class RegionFeedSnapshot:
+    region_code: str
+    region_name: str
+    market_open_day: bool
+    generated_at: datetime
+    tickers: list[TickerSnapshot] = field(default_factory=list)
+    error_message: str = ""
 
 
 def _parse_option_symbol(symbol: str) -> tuple[int, str] | None:
@@ -151,6 +173,61 @@ class DashboardService:
     def __init__(self, neo: NeoApiClient, option_depth: int = 5) -> None:
         self.neo = neo
         self.option_depth = option_depth
+        self._display_names = {
+            "NIFTY_SPOT": "NIFTY 50",
+            "BANKNIFTY_SPOT": "NIFTY BANK",
+            "SPY": "SPDR S&P 500 ETF",
+            "QQQ": "Invesco QQQ",
+            "DIA": "SPDR Dow Jones Industrial Average ETF",
+            "IWM": "iShares Russell 2000 ETF",
+            "AAPL": "Apple",
+            "MSFT": "Microsoft",
+            "NVDA": "NVIDIA",
+            "TSLA": "Tesla",
+        }
+
+    async def load_multi_region_dashboard_data(self) -> list[RegionFeedSnapshot]:
+        india_snapshot, us_snapshot = await asyncio.gather(
+            self._load_region_snapshot("IN", "India Markets", settings.india_tickers, is_market_day),
+            self._load_region_snapshot("US", "US Markets", settings.us_tickers, is_us_market_day),
+        )
+        return [india_snapshot, us_snapshot]
+
+    async def _load_region_snapshot(
+        self,
+        region_code: str,
+        region_name: str,
+        symbols: tuple[str, ...],
+        market_day_fn,
+    ) -> RegionFeedSnapshot:
+        market_open_day = market_day_fn()
+        snapshot = RegionFeedSnapshot(
+            region_code=region_code,
+            region_name=region_name,
+            market_open_day=market_open_day,
+            generated_at=datetime.now(tz=timezone.utc),
+        )
+        if not market_open_day:
+            snapshot.error_message = "Market is closed today."
+            return snapshot
+        try:
+            quotes = await asyncio.gather(*(self.neo.get_quote(symbol) for symbol in symbols))
+        except Exception as exc:  # noqa: BLE001 - expose upstream message region-wise.
+            snapshot.error_message = str(exc)
+            return snapshot
+
+        snapshot.tickers = [self._to_ticker_snapshot(quote) for quote in quotes]
+        return snapshot
+
+    def _to_ticker_snapshot(self, quote: MarketQuote) -> TickerSnapshot:
+        return TickerSnapshot(
+            symbol=quote.symbol,
+            display_name=self._display_names.get(quote.symbol, quote.symbol),
+            ltp=quote.ltp,
+            change=quote.change,
+            pct_change=quote.pct_change,
+            volume=quote.volume,
+        )
 
     async def load_dashboard_data(self) -> list[InstrumentSnapshot]:
         snapshots: list[InstrumentSnapshot] = []
