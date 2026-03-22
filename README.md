@@ -7,7 +7,9 @@ Fluxid is a Python web app that shows live market snapshots for:
 
 The symbol generation logic is generic, so you can extend to more indices/instruments later.
 
-## Dashboard
+## Pages
+
+### Dashboard (`/`)
 
 The dashboard presents each index instrument with:
 
@@ -15,6 +17,17 @@ The dashboard presents each index instrument with:
 - **Option chain table** – CE and PE quotes displayed side-by-side per strike row (CALL columns on the left, PUT columns on the right).  The ATM row is highlighted in amber; strikes below ATM are labelled **ITM** (in-the-money for calls), strikes above ATM are labelled **OTM**.
 - **Formatted numerics** – LTP to 2 d.p.; change values with explicit sign (`+`/`−`); volume shown compactly (e.g. `1.2M`, `500K`).
 - **Auto-refresh** – configurable via `FLUXID_REFRESH_SECONDS` (default 15 s).
+
+### Option Chain OHLC (`/option-chain`)
+
+A dedicated page showing Open / High / Low for both CE and PE sides of every option strike, updated from the same live feed as the dashboard.  The table layout is:
+
+| CE Ticker | Open | High | Low | Strike | PE Ticker | Open | High | Low |
+|-----------|------|------|-----|--------|-----------|------|------|-----|
+
+- Values default to `–` when the upstream payload does not include OHLC fields.
+- Auto-refreshes on the same `FLUXID_REFRESH_SECONDS` interval.
+- A navigation link back to the main dashboard is included at the top of the page.
 
 ## 1) Setup
 

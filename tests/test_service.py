@@ -5,9 +5,11 @@ import pytest
 
 from fluxid.neo_client import MarketQuote
 from fluxid.service import (
+    OptionChainOHLCRow,
     OptionStrikeRow,
     _parse_option_symbol,
     _strike_moneyness,
+    build_option_chain_ohlc_rows,
     build_strike_rows,
 )
 
@@ -180,3 +182,121 @@ def test_build_strike_rows_returns_option_strike_row_instances() -> None:
     rows = build_strike_rows(quotes, atm_strike=24000)
     for row in rows:
         assert isinstance(row, OptionStrikeRow)
+
+
+# ---------------------------------------------------------------------------
+# build_option_chain_ohlc_rows
+# ---------------------------------------------------------------------------
+
+
+def _make_ohlc_quote(
+    symbol: str,
+    ltp: float = 100.0,
+    open: float | None = None,
+    high: float | None = None,
+    low: float | None = None,
+) -> MarketQuote:
+    return MarketQuote(symbol=symbol, ltp=ltp, open=open, high=high, low=low)
+
+
+def test_build_option_chain_ohlc_rows_basic_pairing() -> None:
+    quotes = [
+        _make_ohlc_quote("NIFTY_24000_CE", open=110.0, high=130.0, low=90.0),
+        _make_ohlc_quote("NIFTY_24000_PE", open=80.0, high=95.0, low=70.0),
+    ]
+    rows = build_option_chain_ohlc_rows(quotes)
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.strike == 24000
+    assert row.ce_symbol == "NIFTY_24000_CE"
+    assert row.ce_open == 110.0
+    assert row.ce_high == 130.0
+    assert row.ce_low == 90.0
+    assert row.pe_symbol == "NIFTY_24000_PE"
+    assert row.pe_open == 80.0
+    assert row.pe_high == 95.0
+    assert row.pe_low == 70.0
+
+
+def test_build_option_chain_ohlc_rows_ascending_strike_order() -> None:
+    quotes = [
+        _make_ohlc_quote("NIFTY_24050_CE"),
+        _make_ohlc_quote("NIFTY_23950_CE"),
+        _make_ohlc_quote("NIFTY_24000_CE"),
+    ]
+    rows = build_option_chain_ohlc_rows(quotes)
+    strikes = [r.strike for r in rows]
+    assert strikes == sorted(strikes)
+
+
+def test_build_option_chain_ohlc_rows_missing_ce_gives_none_fields() -> None:
+    quotes = [_make_ohlc_quote("NIFTY_24000_PE", open=80.0, high=95.0, low=70.0)]
+    rows = build_option_chain_ohlc_rows(quotes)
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.ce_symbol is None
+    assert row.ce_open is None
+    assert row.ce_high is None
+    assert row.ce_low is None
+
+
+def test_build_option_chain_ohlc_rows_missing_pe_gives_none_fields() -> None:
+    quotes = [_make_ohlc_quote("NIFTY_24000_CE", open=110.0, high=130.0, low=90.0)]
+    rows = build_option_chain_ohlc_rows(quotes)
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.pe_symbol is None
+    assert row.pe_open is None
+    assert row.pe_high is None
+    assert row.pe_low is None
+
+
+def test_build_option_chain_ohlc_rows_ohlc_none_when_not_in_quote() -> None:
+    quotes = [
+        _make_ohlc_quote("NIFTY_24000_CE"),  # open/high/low all None
+        _make_ohlc_quote("NIFTY_24000_PE"),
+    ]
+    rows = build_option_chain_ohlc_rows(quotes)
+    row = rows[0]
+    assert row.ce_open is None
+    assert row.ce_high is None
+    assert row.ce_low is None
+
+
+def test_build_option_chain_ohlc_rows_multiple_strikes() -> None:
+    quotes = [
+        _make_ohlc_quote("NIFTY_24000_CE"),
+        _make_ohlc_quote("NIFTY_24000_PE"),
+        _make_ohlc_quote("NIFTY_24050_CE"),
+        _make_ohlc_quote("NIFTY_24050_PE"),
+    ]
+    rows = build_option_chain_ohlc_rows(quotes)
+    assert len(rows) == 2
+    assert rows[0].strike == 24000
+    assert rows[1].strike == 24050
+
+
+def test_build_option_chain_ohlc_rows_empty_quotes() -> None:
+    rows = build_option_chain_ohlc_rows([])
+    assert rows == []
+
+
+def test_build_option_chain_ohlc_rows_ignores_non_option_symbols() -> None:
+    quotes = [
+        _make_ohlc_quote("NIFTY_SPOT"),
+        _make_ohlc_quote("NIFTY_FUT"),
+        _make_ohlc_quote("NIFTY_24000_CE", open=100.0, high=120.0, low=80.0),
+    ]
+    rows = build_option_chain_ohlc_rows(quotes)
+    assert len(rows) == 1
+    assert rows[0].strike == 24000
+
+
+def test_build_option_chain_ohlc_rows_returns_ohlc_row_instances() -> None:
+    quotes = [
+        _make_ohlc_quote("NIFTY_24000_CE"),
+        _make_ohlc_quote("NIFTY_24000_PE"),
+    ]
+    rows = build_option_chain_ohlc_rows(quotes)
+    for row in rows:
+        assert isinstance(row, OptionChainOHLCRow)

@@ -17,6 +17,9 @@ class MarketQuote:
     change: float | None = None
     pct_change: float | None = None
     volume: float | None = None
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
     source_payload: dict[str, Any] | None = None
 
 
@@ -79,6 +82,24 @@ class NeoApiClient:
             change=_to_float(source.get("change") or source.get("netChange")),
             pct_change=_to_float(source.get("pChange") or source.get("percentChange")),
             volume=_to_float(source.get("volume") or source.get("totalTradedVolume")),
+            open=_to_float(
+                source.get("open")
+                or source.get("openPrice")
+                or source.get("open_price")
+                or source.get("dayOpen")
+            ),
+            high=_to_float(
+                source.get("high")
+                or source.get("highPrice")
+                or source.get("high_price")
+                or source.get("dayHigh")
+            ),
+            low=_to_float(
+                source.get("low")
+                or source.get("lowPrice")
+                or source.get("low_price")
+                or source.get("dayLow")
+            ),
             source_payload=payload,
         )
 
