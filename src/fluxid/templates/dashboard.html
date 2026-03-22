@@ -9,6 +9,15 @@
       body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; }
       .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
       .card { background: #1e293b; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+      .regions-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
+      .region-panel { background: #1e293b; border-radius: 10px; padding: 16px; }
+      .status-badge { font-size: 10px; font-weight: 700; border-radius: 999px; padding: 2px 8px; margin-left: 8px; }
+      .status-open { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+      .status-closed { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+      .ticker-table td:first-child, .ticker-table th:first-child { text-align: left; }
+      @media (min-width: 1024px) {
+        .regions-grid { grid-template-columns: 1fr 1fr; }
+      }
 
       /* ── Summary bar ── */
       .summary { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -65,6 +74,56 @@
       {% if error_message %}
       <div class="card"><p class="error">{{ error_message }}</p></div>
       {% endif %}
+
+      <div class="regions-grid">
+      {% for region in regional_snapshots %}
+        <div class="region-panel">
+          <h2>
+            {{ region.region_name }}
+            <span class="status-badge {{ 'status-open' if region.market_open_day else 'status-closed' }}">
+              {{ 'OPEN' if region.market_open_day else 'CLOSED' }}
+            </span>
+          </h2>
+          <p class="muted">Updated at {{ region.generated_at }}</p>
+          {% if region.error_message %}
+          <p class="error">{{ region.error_message }}</p>
+          {% endif %}
+          {% if region.tickers %}
+          <table class="ticker-table">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>LTP</th>
+                <th>Chg</th>
+                <th>Chg%</th>
+                <th>Vol</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ticker in region.tickers %}
+              <tr>
+                <td style="text-align:left">
+                  <div>{{ ticker.symbol }}</div>
+                  <div class="muted" style="font-size:10px">{{ ticker.display_name }}</div>
+                </td>
+                <td>{{ '%.2f'|format(ticker.ltp) }}</td>
+                <td class="{{ 'pos' if ticker.change is not none and ticker.change >= 0 else 'neg' if ticker.change is not none }}">
+                  {{ '%+.2f'|format(ticker.change) if ticker.change is not none else '-' }}
+                </td>
+                <td class="{{ 'pos' if ticker.pct_change is not none and ticker.pct_change >= 0 else 'neg' if ticker.pct_change is not none }}">
+                  {{ '%+.2f%%'|format(ticker.pct_change) if ticker.pct_change is not none else '-' }}
+                </td>
+                <td>{{ ticker.volume | fmt_volume }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <p class="muted">No ticker data available.</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+      </div>
 
       {% for snap in snapshots %}
       <div class="card">

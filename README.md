@@ -13,6 +13,7 @@ The symbol generation logic is generic, so you can extend to more indices/instru
 
 The dashboard presents each index instrument with:
 
+- **Regional live feed strip** – India and US ticker panels shown side-by-side on desktop (stacked on mobile), each with symbol, LTP, change, % change, and volume.
 - **Summary bar** – Spot LTP, Futures LTP, ATM strike, and Futures–Spot basis; change and % change shown in green/red.
 - **Option chain table** – CE and PE quotes displayed side-by-side per strike row (CALL columns on the left, PUT columns on the right).  The ATM row is highlighted in amber; strikes below ATM are labelled **ITM** (in-the-money for calls), strikes above ATM are labelled **OTM**.
 - **Formatted numerics** – LTP to 2 d.p.; change values with explicit sign (`+`/`−`); volume shown compactly (e.g. `1.2M`, `500K`).
@@ -51,6 +52,8 @@ FLUXID_NEO_ACCESS_TOKEN=optional_access_token
 # change if your contract uses a different host
 FLUXID_NEO_API_BASE_URL=https://api.kotaksecurities.com/neo
 FLUXID_REFRESH_SECONDS=15
+FLUXID_INDIA_TICKERS=NIFTY_SPOT,BANKNIFTY_SPOT
+FLUXID_US_TICKERS=SPY,QQQ,DIA,IWM,AAPL,MSFT,NVDA,TSLA
 ```
 
 ## 2) Run locally
@@ -109,3 +112,7 @@ If you need Docker for local tooling, use the cross-platform installation steps 
 API contracts can vary by account/app version. Fluxid includes a resilient adapter (`NeoApiClient`) with fallback endpoint and query-key attempts. If your account uses different paths, update `NeoApiClient._fetch_quote_payload()` in `src/fluxid/neo_client.py`.
 
 The dashboard intentionally loads data only on market weekdays (evaluated in the Asia/Kolkata exchange timezone).
+
+## Design notes
+
+- Multi-region (India + US) side-by-side live feed LLD and implementation task breakdown: `docs/us-market-live-feed-lld.md`.

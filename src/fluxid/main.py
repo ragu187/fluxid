@@ -41,6 +41,7 @@ service = DashboardService(neo=neo)
 async def dashboard(request: Request) -> HTMLResponse:
     market_open_day = is_market_day()
     snapshots = []
+    regional_snapshots = await service.load_multi_region_dashboard_data()
     error_message = ""
 
     if market_open_day:
@@ -56,6 +57,7 @@ async def dashboard(request: Request) -> HTMLResponse:
         name="dashboard.html",
         context={
             "snapshots": snapshots,
+            "regional_snapshots": regional_snapshots,
             "market_open_day": market_open_day,
             "error_message": error_message,
             "generated_at": datetime.now(),
