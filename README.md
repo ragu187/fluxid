@@ -109,3 +109,7 @@ If you need Docker for local tooling, use the cross-platform installation steps 
 API contracts can vary by account/app version. Fluxid includes a resilient adapter (`NeoApiClient`) with fallback endpoint and query-key attempts. If your account uses different paths, update `NeoApiClient._fetch_quote_payload()` in `src/fluxid/neo_client.py`.
 
 The dashboard intentionally loads data only on market weekdays (evaluated in the Asia/Kolkata exchange timezone).
+
+## Design notes
+
+- Multi-region (India + US) side-by-side live feed LLD and implementation task breakdown: `docs/us-market-live-feed-lld.md`.
