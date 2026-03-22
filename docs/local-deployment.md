@@ -6,7 +6,7 @@ This guide explains how to run **Fluxid** locally so reviewers and developers ca
 
 - Python **3.10+**
 - `pip` and `venv`
-- Valid Kotak/Kodak Neo API credentials (for live market data)
+- Valid Kotak Neo API credentials (for live market data)
 
 Optional but recommended:
 - `curl` for API checks
@@ -128,14 +128,20 @@ On Windows PowerShell, use:
 Copy-Item .env.example .env
 ```
 
-Update `.env` with your credentials and desired refresh interval:
+Update `.env` with your credentials, refresh interval, and ticker groups:
 
 ```env
-FLUXID_NEO_API_KEY=your_kodak_neo_api_key
+FLUXID_NEO_API_KEY=your_kotak_neo_api_key
 FLUXID_NEO_ACCESS_TOKEN=optional_access_token
 FLUXID_NEO_API_BASE_URL=https://api.kotaksecurities.com/neo
 FLUXID_REFRESH_SECONDS=15
+FLUXID_INDIA_TICKERS=NIFTY_SPOT,BANKNIFTY_SPOT
+FLUXID_US_TICKERS=SPY,QQQ,DIA,IWM,AAPL,MSFT,NVDA,TSLA
 ```
+
+> Notes:
+> - `FLUXID_INDIA_TICKERS` and `FLUXID_US_TICKERS` are comma-separated lists.
+> - If your current quote contract does not support US symbols yet, set `FLUXID_US_TICKERS=` (empty) to suppress US fetch calls during local validation.
 
 ## 6) Run the app locally
 
@@ -197,6 +203,32 @@ PY
 
 If the smoke test fails, adjust endpoint/query-key mapping in `src/fluxid/neo_client.py` to match your specific Neo contract.
 
+### Regional feed smoke check (India + US panel validation)
+
+Use this only after confirming your quote contract can resolve symbols in both configured lists:
+
+```bash
+python - <<'PY'
+import asyncio
+from fluxid.config import settings
+from fluxid.neo_client import NeoApiClient
+
+async def main():
+    client = NeoApiClient(
+        base_url=settings.neo_api_base_url,
+        api_key=settings.neo_api_key,
+        access_token=settings.neo_access_token,
+    )
+    for symbol in (*settings.india_tickers, *settings.us_tickers):
+        q = await client.get_quote(symbol)
+        print(symbol, "=>", q.ltp)
+
+asyncio.run(main())
+PY
+```
+
+If US symbols are unsupported in your current environment, keep `FLUXID_US_TICKERS=` while reviewing local deployment flow.
+
 ## 8) Validation for review
 
 Run these checks before sharing changes.
@@ -231,6 +263,7 @@ python -m compileall src tests
 
 - **App fails to start**: confirm virtualenv is activated and dependencies are installed.
 - **No live quotes**: verify `.env` credentials and Neo API base URL.
+- **US panel errors only**: your configured US symbols may not be available from the current quote provider contract; set `FLUXID_US_TICKERS=` temporarily and retry.
 - **Import errors**: ensure `PYTHONPATH=src` is included when running app/tests.
 - **Market data appears stale**: tune `FLUXID_REFRESH_SECONDS` and verify market-day behavior.
 - **Docker not found on Windows**: confirm Docker Desktop is running and WSL integration is enabled.
