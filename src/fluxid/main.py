@@ -32,7 +32,7 @@ templates.env.filters["fmt_volume"] = _format_volume_compact
 neo = NeoApiClient(
     base_url=settings.neo_api_base_url,
     api_key=settings.neo_api_key,
-    access_token=settings.neo_access_token,
+    toft_key=settings.neo_toft_key,
 )
 service = DashboardService(neo=neo)
 

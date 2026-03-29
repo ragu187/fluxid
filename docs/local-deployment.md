@@ -162,7 +162,7 @@ Update `.env` with your credentials, refresh interval, and ticker groups:
 
 ```env
 FLUXID_NEO_API_KEY=your_kotak_neo_api_key
-FLUXID_NEO_ACCESS_TOKEN=optional_access_token
+FLUXID_NEO_TOFT_KEY=optional_toft_key
 FLUXID_NEO_API_BASE_URL=https://api.kotaksecurities.com/neo
 FLUXID_REFRESH_SECONDS=15
 FLUXID_INDIA_TICKERS=NIFTY_SPOT,BANKNIFTY_SPOT
@@ -222,7 +222,7 @@ async def main():
     client = NeoApiClient(
         base_url=settings.neo_api_base_url,
         api_key=settings.neo_api_key,
-        access_token=settings.neo_access_token,
+        toft_key=settings.neo_toft_key,
     )
     quote = await client.get_quote("NIFTY_SPOT")
     print("Connected. LTP:", quote.ltp)
@@ -247,7 +247,7 @@ async def main():
     client = NeoApiClient(
         base_url=settings.neo_api_base_url,
         api_key=settings.neo_api_key,
-        access_token=settings.neo_access_token,
+        toft_key=settings.neo_toft_key,
     )
     for symbol in (*settings.india_tickers, *settings.us_tickers):
         q = await client.get_quote(symbol)
