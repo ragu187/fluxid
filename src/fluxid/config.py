@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     us_tickers: tuple[str, ...] = ("SPY", "QQQ", "DIA", "IWM", "AAPL", "MSFT", "NVDA", "TSLA")
     enable_us_feed: bool = True
 
+    # Alpaca Market Data API settings (used for the US feed)
+    # Free IEX feed: set alpaca_feed="iex" (15-min delayed, no subscription needed).
+    # Real-time SIP feed: set alpaca_feed="sip" (requires a paid Alpaca plan).
+    alpaca_data_base_url: str = "https://data.alpaca.markets"
+    alpaca_api_key_id: str = Field(default="", description="Alpaca API key ID (APCA-API-KEY-ID)")
+    alpaca_api_secret_key: str = Field(default="", description="Alpaca API secret key (APCA-API-SECRET-KEY)")
+    alpaca_feed: str = Field(default="iex", description="Alpaca data feed: 'iex' (free, delayed) or 'sip' (real-time, paid)")
+
     @field_validator("india_tickers", "us_tickers", mode="before")
     @classmethod
     def _parse_tickers(cls, value: object) -> tuple[str, ...]:

@@ -8,7 +8,8 @@ from fastapi.templating import Jinja2Templates
 
 from fluxid.config import settings
 from fluxid.market import is_market_day
-from fluxid.neo_client import NeoApiClient, NeoApiError
+from fluxid.alpaca_client import AlpacaApiClient, AlpacaQuoteProvider
+from fluxid.neo_client import NeoApiClient, NeoApiError, NeoQuoteProvider, CompositeQuoteProvider
 from fluxid.service import DashboardService
 
 app = FastAPI(title=settings.app_name)
@@ -34,7 +35,17 @@ neo = NeoApiClient(
     api_key=settings.neo_api_key,
     toft_key=settings.neo_toft_key,
 )
-service = DashboardService(neo=neo)
+alpaca = AlpacaApiClient(
+    base_url=settings.alpaca_data_base_url,
+    key_id=settings.alpaca_api_key_id,
+    secret_key=settings.alpaca_api_secret_key,
+    feed=settings.alpaca_feed,
+)
+composite = CompositeQuoteProvider(
+    india=NeoQuoteProvider(neo),
+    us=AlpacaQuoteProvider(alpaca),
+)
+service = DashboardService(neo=neo, composite=composite)
 
 
 @app.get("/", response_class=HTMLResponse)

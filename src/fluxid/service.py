@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from fluxid.config import settings
 from fluxid.market import INSTRUMENTS, expand_generic_symbols, is_market_day, is_us_market_day, nearest_strike
-from fluxid.neo_client import MarketQuote, NeoApiClient
+from fluxid.neo_client import CompositeQuoteProvider, MarketQuote, NeoApiClient
 
 
 @dataclass
@@ -172,8 +172,9 @@ def build_option_chain_ohlc_rows(
 
 
 class DashboardService:
-    def __init__(self, neo: NeoApiClient, option_depth: int = 5) -> None:
+    def __init__(self, neo: NeoApiClient, composite: CompositeQuoteProvider | None = None, option_depth: int = 5) -> None:
         self.neo = neo
+        self.composite = composite
         self.option_depth = option_depth
         self._display_names = {
             "NIFTY_SPOT": "NIFTY 50",
@@ -217,7 +218,12 @@ class DashboardService:
             snapshot.error_message = "Market is closed today."
             return snapshot
         try:
-            quotes = await asyncio.gather(*(self.neo.get_quote(symbol) for symbol in symbols))
+            if self.composite is not None:
+                quotes = await asyncio.gather(
+                    *(self.composite.get_quote(symbol, region_code) for symbol in symbols)
+                )
+            else:
+                quotes = await asyncio.gather(*(self.neo.get_quote(symbol) for symbol in symbols))
         except Exception as exc:  # noqa: BLE001 - expose upstream message region-wise.
             snapshot.error_message = str(exc)
             return snapshot
