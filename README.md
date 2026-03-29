@@ -103,6 +103,28 @@ PY
 
 If this fails, update `src/fluxid/neo_client.py` endpoint/query-key mapping to match your account's exact Neo API contract.
 
+## Docker Compose (standardized local run)
+
+1. Copy environment file and add your credentials:
+
+```bash
+cp .env.example .env
+```
+
+2. Build and start the app:
+
+```bash
+docker compose up --build
+```
+
+3. Open `http://localhost:8000`.
+
+4. Stop the app:
+
+```bash
+docker compose down
+```
+
 ## Docker installation
 
 If you need Docker for local tooling, use the cross-platform installation steps (including full Windows + WSL2 setup) in `docs/local-deployment.md` under **"Docker installation (macOS/Linux + Windows)"`.

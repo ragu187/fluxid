@@ -100,7 +100,37 @@ git clone <your-repo-url>
 cd fluxid
 ```
 
-## 4) Create a virtual environment and install dependencies
+## 4) Standardized Docker Compose workflow (recommended)
+
+1. Create the runtime env file:
+
+```bash
+cp .env.example .env
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2. Update `.env` with your credentials and symbol lists.
+
+3. Build and run:
+
+```bash
+docker compose up --build
+```
+
+4. Open `http://localhost:8000`.
+
+5. Stop the stack:
+
+```bash
+docker compose down
+```
+
+## 5) Create a virtual environment and install dependencies
 
 ```bash
 python -m venv .venv
@@ -114,7 +144,7 @@ pip install -e .[dev]
 > .\.venv\Scripts\Activate.ps1
 > ```
 
-## 5) Configure environment variables
+## 6) Configure environment variables
 
 Create a local runtime env file:
 
@@ -143,7 +173,7 @@ FLUXID_US_TICKERS=SPY,QQQ,DIA,IWM,AAPL,MSFT,NVDA,TSLA
 > - `FLUXID_INDIA_TICKERS` and `FLUXID_US_TICKERS` are comma-separated lists.
 > - If your current quote contract does not support US symbols yet, set `FLUXID_US_TICKERS=` (empty) to suppress US fetch calls during local validation.
 
-## 6) Run the app locally
+## 7) Run the app locally
 
 macOS/Linux:
 
@@ -162,7 +192,7 @@ Open the app in your browser:
 
 - http://localhost:8000
 
-## 7) Health and smoke checks
+## 8) Health and smoke checks
 
 ### Basic HTTP check
 
@@ -229,7 +259,7 @@ PY
 
 If US symbols are unsupported in your current environment, keep `FLUXID_US_TICKERS=` while reviewing local deployment flow.
 
-## 8) Validation for review
+## 9) Validation for review
 
 Run these checks before sharing changes.
 
@@ -248,7 +278,7 @@ python -m pytest -q
 python -m compileall src tests
 ```
 
-## 9) Workflow for further enhancement
+## 10) Workflow for further enhancement
 
 1. Create a feature branch from your latest main branch.
 2. Make incremental changes with focused commits.
