@@ -62,6 +62,58 @@ def is_us_market_day(now: datetime | None = None) -> bool:
     return now.weekday() < 5
 
 
+def is_market_day_india(now: datetime | None = None) -> bool:
+    """Return True when *now* falls on a weekday in the India exchange timezone.
+
+    Alias for :func:`is_market_day` provided for symmetry with the US helpers.
+    """
+    return is_market_day(now)
+
+
+def is_market_day_us(now: datetime | None = None) -> bool:
+    """Return True when *now* falls on a weekday in the US exchange timezone.
+
+    Alias for :func:`is_us_market_day` provided for API symmetry.
+    """
+    return is_us_market_day(now)
+
+
+def is_market_open_india(now: datetime | None = None) -> bool:
+    """Return True when *now* is within NSE/BSE trading hours.
+
+    Trading session: 09:15–15:30 IST on weekdays.
+    If *now* is ``None`` the current wall-clock time is used.
+    Timezone-aware values are converted to IST; naive values are treated as IST.
+    """
+    if now is None:
+        now = _now_in_exchange_tz()
+    elif now.tzinfo is not None:
+        now = now.astimezone(EXCHANGE_TZ)
+    if now.weekday() >= 5:
+        return False
+    session_start = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    session_end = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return session_start <= now <= session_end
+
+
+def is_market_open_us(now: datetime | None = None) -> bool:
+    """Return True when *now* is within NYSE/NASDAQ regular trading hours.
+
+    Trading session: 09:30–16:00 ET on weekdays.
+    If *now* is ``None`` the current wall-clock time is used.
+    Timezone-aware values are converted to ET; naive values are treated as ET.
+    """
+    if now is None:
+        now = _now_in_us_exchange_tz()
+    elif now.tzinfo is not None:
+        now = now.astimezone(US_EXCHANGE_TZ)
+    if now.weekday() >= 5:
+        return False
+    session_start = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    session_end = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    return session_start <= now <= session_end
+
+
 def nearest_strike(price: float, step: int) -> int:
     """Return the strike price nearest to *price* on the *step* grid.
 

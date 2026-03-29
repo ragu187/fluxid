@@ -54,6 +54,8 @@ class TickerSnapshot:
     change: float | None
     pct_change: float | None
     volume: float | None
+    currency: str
+    last_trade_time: str | None = None
 
 
 @dataclass
@@ -187,11 +189,14 @@ class DashboardService:
         }
 
     async def load_multi_region_dashboard_data(self) -> list[RegionFeedSnapshot]:
-        india_snapshot, us_snapshot = await asyncio.gather(
-            self._load_region_snapshot("IN", "India Markets", settings.india_tickers, is_market_day),
-            self._load_region_snapshot("US", "US Markets", settings.us_tickers, is_us_market_day),
-        )
-        return [india_snapshot, us_snapshot]
+        tasks = [
+            self._load_region_snapshot("IN", "India Markets", settings.india_tickers, is_market_day, "INR"),
+        ]
+        if settings.enable_us_feed:
+            tasks.append(
+                self._load_region_snapshot("US", "US Markets", settings.us_tickers, is_us_market_day, "USD"),
+            )
+        return list(await asyncio.gather(*tasks))
 
     async def _load_region_snapshot(
         self,
@@ -199,6 +204,7 @@ class DashboardService:
         region_name: str,
         symbols: tuple[str, ...],
         market_day_fn,
+        currency: str,
     ) -> RegionFeedSnapshot:
         market_open_day = market_day_fn()
         snapshot = RegionFeedSnapshot(
@@ -216,10 +222,10 @@ class DashboardService:
             snapshot.error_message = str(exc)
             return snapshot
 
-        snapshot.tickers = [self._to_ticker_snapshot(quote) for quote in quotes]
+        snapshot.tickers = [self._to_ticker_snapshot(quote, currency) for quote in quotes]
         return snapshot
 
-    def _to_ticker_snapshot(self, quote: MarketQuote) -> TickerSnapshot:
+    def _to_ticker_snapshot(self, quote: MarketQuote, currency: str) -> TickerSnapshot:
         return TickerSnapshot(
             symbol=quote.symbol,
             display_name=self._display_names.get(quote.symbol, quote.symbol),
@@ -227,6 +233,7 @@ class DashboardService:
             change=quote.change,
             pct_change=quote.pct_change,
             volume=quote.volume,
+            currency=currency,
         )
 
     async def load_dashboard_data(self) -> list[InstrumentSnapshot]:

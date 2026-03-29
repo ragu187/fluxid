@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 import httpx
 
@@ -21,6 +21,14 @@ class MarketQuote:
     high: float | None = None
     low: float | None = None
     source_payload: dict[str, Any] | None = None
+
+
+@runtime_checkable
+class QuoteProvider(Protocol):
+    """Provider interface for fetching market quotes."""
+
+    async def get_quote(self, symbol: str, region: str) -> MarketQuote:
+        ...
 
 
 class NeoApiClient:
@@ -111,3 +119,49 @@ def _to_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+class NeoQuoteProvider:
+    """Adapts :class:`NeoApiClient` to the :class:`QuoteProvider` protocol for India instruments."""
+
+    def __init__(self, client: NeoApiClient) -> None:
+        self._client = client
+
+    async def get_quote(self, symbol: str, region: str) -> MarketQuote:
+        return await self._client.get_quote(symbol)
+
+
+class UsQuoteProvider:
+    """US quote provider.
+
+    Delegates to :class:`NeoApiClient` until a dedicated US upstream is integrated.
+    Implement a region-specific HTTP adapter here when a US data source is onboarded.
+    """
+
+    def __init__(self, client: NeoApiClient) -> None:
+        self._client = client
+
+    async def get_quote(self, symbol: str, region: str) -> MarketQuote:
+        return await self._client.get_quote(symbol)
+
+
+class CompositeQuoteProvider:
+    """Routes quote requests to the correct regional :class:`QuoteProvider`.
+
+    Usage::
+
+        composite = CompositeQuoteProvider(
+            india=NeoQuoteProvider(neo_client),
+            us=UsQuoteProvider(neo_client),
+        )
+        quote = await composite.get_quote("AAPL", region="US")
+    """
+
+    def __init__(self, india: QuoteProvider, us: QuoteProvider) -> None:
+        self._providers: dict[str, QuoteProvider] = {"IN": india, "US": us}
+
+    async def get_quote(self, symbol: str, region: str) -> MarketQuote:
+        provider = self._providers.get(region)
+        if provider is None:
+            raise NeoApiError(f"No quote provider configured for region {region!r}")
+        return await provider.get_quote(symbol, region)
