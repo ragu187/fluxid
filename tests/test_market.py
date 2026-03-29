@@ -1,11 +1,16 @@
 from datetime import datetime, timezone, timedelta
 
 import pytest
+from zoneinfo import ZoneInfo
 
 from fluxid.market import (
     EXCHANGE_TZ,
     expand_generic_symbols,
     is_market_day,
+    is_market_day_india,
+    is_market_day_us,
+    is_market_open_india,
+    is_market_open_us,
     is_us_market_day,
     nearest_strike,
     option_strikes,
@@ -82,6 +87,122 @@ def test_is_us_market_day_weekday() -> None:
 
 def test_is_us_market_day_weekend() -> None:
     assert is_us_market_day(datetime(2026, 1, 4)) is False
+
+
+# ---------------------------------------------------------------------------
+# is_market_day_india / is_market_day_us – alias coverage
+# ---------------------------------------------------------------------------
+
+def test_is_market_day_india_weekday() -> None:
+    assert is_market_day_india(datetime(2026, 1, 5)) is True
+
+
+def test_is_market_day_india_weekend() -> None:
+    assert is_market_day_india(datetime(2026, 1, 4)) is False
+
+
+def test_is_market_day_us_weekday() -> None:
+    assert is_market_day_us(datetime(2026, 1, 5)) is True
+
+
+def test_is_market_day_us_weekend() -> None:
+    assert is_market_day_us(datetime(2026, 1, 4)) is False
+
+
+# ---------------------------------------------------------------------------
+# is_market_open_india – session hours (09:15–15:30 IST, weekdays)
+# ---------------------------------------------------------------------------
+
+def test_is_market_open_india_during_session() -> None:
+    # Wednesday 2026-01-07 12:00 IST (weekday, within session)
+    dt = datetime(2026, 1, 7, 12, 0, tzinfo=ZoneInfo("Asia/Kolkata"))
+    assert is_market_open_india(dt) is True
+
+
+def test_is_market_open_india_before_session() -> None:
+    # Wednesday 2026-01-07 08:00 IST (before 09:15)
+    dt = datetime(2026, 1, 7, 8, 0, tzinfo=ZoneInfo("Asia/Kolkata"))
+    assert is_market_open_india(dt) is False
+
+
+def test_is_market_open_india_after_session() -> None:
+    # Wednesday 2026-01-07 16:00 IST (after 15:30)
+    dt = datetime(2026, 1, 7, 16, 0, tzinfo=ZoneInfo("Asia/Kolkata"))
+    assert is_market_open_india(dt) is False
+
+
+def test_is_market_open_india_at_open() -> None:
+    # Exactly at 09:15 IST – boundary is inclusive
+    dt = datetime(2026, 1, 7, 9, 15, tzinfo=ZoneInfo("Asia/Kolkata"))
+    assert is_market_open_india(dt) is True
+
+
+def test_is_market_open_india_at_close() -> None:
+    # Exactly at 15:30 IST – boundary is inclusive
+    dt = datetime(2026, 1, 7, 15, 30, tzinfo=ZoneInfo("Asia/Kolkata"))
+    assert is_market_open_india(dt) is True
+
+
+def test_is_market_open_india_on_weekend() -> None:
+    # Saturday 2026-01-10 12:00 IST
+    dt = datetime(2026, 1, 10, 12, 0, tzinfo=ZoneInfo("Asia/Kolkata"))
+    assert is_market_open_india(dt) is False
+
+
+def test_is_market_open_india_no_arg_returns_bool() -> None:
+    result = is_market_open_india()
+    assert isinstance(result, bool)
+
+
+# ---------------------------------------------------------------------------
+# is_market_open_us – session hours (09:30–16:00 ET, weekdays)
+# ---------------------------------------------------------------------------
+
+def test_is_market_open_us_during_session() -> None:
+    # Wednesday 2026-01-07 13:00 ET (weekday, within session)
+    et = ZoneInfo("America/New_York")
+    dt = datetime(2026, 1, 7, 13, 0, tzinfo=et)
+    assert is_market_open_us(dt) is True
+
+
+def test_is_market_open_us_before_session() -> None:
+    # Wednesday 2026-01-07 08:00 ET (before 09:30)
+    et = ZoneInfo("America/New_York")
+    dt = datetime(2026, 1, 7, 8, 0, tzinfo=et)
+    assert is_market_open_us(dt) is False
+
+
+def test_is_market_open_us_after_session() -> None:
+    # Wednesday 2026-01-07 17:00 ET (after 16:00)
+    et = ZoneInfo("America/New_York")
+    dt = datetime(2026, 1, 7, 17, 0, tzinfo=et)
+    assert is_market_open_us(dt) is False
+
+
+def test_is_market_open_us_at_open() -> None:
+    # Exactly at 09:30 ET – boundary is inclusive
+    et = ZoneInfo("America/New_York")
+    dt = datetime(2026, 1, 7, 9, 30, tzinfo=et)
+    assert is_market_open_us(dt) is True
+
+
+def test_is_market_open_us_at_close() -> None:
+    # Exactly at 16:00 ET – boundary is inclusive
+    et = ZoneInfo("America/New_York")
+    dt = datetime(2026, 1, 7, 16, 0, tzinfo=et)
+    assert is_market_open_us(dt) is True
+
+
+def test_is_market_open_us_on_weekend() -> None:
+    # Saturday 2026-01-10 13:00 ET
+    et = ZoneInfo("America/New_York")
+    dt = datetime(2026, 1, 10, 13, 0, tzinfo=et)
+    assert is_market_open_us(dt) is False
+
+
+def test_is_market_open_us_no_arg_returns_bool() -> None:
+    result = is_market_open_us()
+    assert isinstance(result, bool)
 
 
 # ---------------------------------------------------------------------------

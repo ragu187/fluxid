@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     neo_access_token: str = Field(default="", description="Optional bearer token if required")
     india_tickers: tuple[str, ...] = ("NIFTY_SPOT", "BANKNIFTY_SPOT")
     us_tickers: tuple[str, ...] = ("SPY", "QQQ", "DIA", "IWM", "AAPL", "MSFT", "NVDA", "TSLA")
+    enable_us_feed: bool = True
 
     @field_validator("india_tickers", "us_tickers", mode="before")
     @classmethod
