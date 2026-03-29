@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # Kotak Neo API settings
     neo_api_base_url: str = "https://api.kotaksecurities.com/neo"
     neo_api_key: str = Field(default="", description="Kotak Neo API key")
-    neo_access_token: str = Field(default="", description="Optional bearer token if required")
+    neo_toft_key: str = Field(default="", description="Optional toft key if required")
     india_tickers: tuple[str, ...] = ("NIFTY_SPOT", "BANKNIFTY_SPOT")
     us_tickers: tuple[str, ...] = ("SPY", "QQQ", "DIA", "IWM", "AAPL", "MSFT", "NVDA", "TSLA")
     enable_us_feed: bool = True

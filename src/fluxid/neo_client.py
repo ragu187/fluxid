@@ -32,16 +32,16 @@ class QuoteProvider(Protocol):
 
 
 class NeoApiClient:
-    def __init__(self, base_url: str, api_key: str, access_token: str = "") -> None:
+    def __init__(self, base_url: str, api_key: str, toft_key: str = "") -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
-        self.access_token = access_token
+        self.toft_key = toft_key
 
     @property
     def _headers(self) -> dict[str, str]:
         headers = {"X-API-Key": self.api_key, "Accept": "application/json"}
-        if self.access_token:
-            headers["Authorization"] = f"Bearer {self.access_token}"
+        if self.toft_key:
+            headers["X-Toft-Key"] = self.toft_key
         return headers
 
     async def get_quote(self, symbol: str) -> MarketQuote:
