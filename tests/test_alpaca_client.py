@@ -194,3 +194,92 @@ def test_alpaca_quote_provider_satisfies_protocol() -> None:
 
     provider = AlpacaQuoteProvider(_client)
     assert isinstance(provider, QuoteProvider)
+
+
+# ---------------------------------------------------------------------------
+# FirstMinuteBar / _coerce_bar
+# ---------------------------------------------------------------------------
+
+
+def _make_bar(
+    t: str = "2026-03-30T13:30:00Z",
+    o: float | None = 150.0,
+    h: float | None = 152.5,
+    l: float | None = 149.0,
+    c: float | None = 151.0,
+    v: float | None = 3_000_000.0,
+) -> dict[str, Any]:
+    bar: dict[str, Any] = {"t": t}
+    if o is not None:
+        bar["o"] = o
+    if h is not None:
+        bar["h"] = h
+    if l is not None:
+        bar["l"] = l
+    if c is not None:
+        bar["c"] = c
+    if v is not None:
+        bar["v"] = v
+    return bar
+
+
+def _coerce_bar(bar: dict[str, Any], symbol: str = "AAPL") -> "FirstMinuteBar":
+    from fluxid.alpaca_client import FirstMinuteBar  # noqa: F401
+    return _client._coerce_bar(symbol=symbol, bar=bar)
+
+
+def test_coerce_bar_ohlc_fields() -> None:
+    bar = _coerce_bar(_make_bar(o=150.0, h=152.5, l=149.0, c=151.0))
+    assert bar.open == 150.0
+    assert bar.high == 152.5
+    assert bar.low == 149.0
+    assert bar.close == 151.0
+
+
+def test_coerce_bar_volume() -> None:
+    bar = _coerce_bar(_make_bar(v=5_000_000.0))
+    assert bar.volume == 5_000_000.0
+
+
+def test_coerce_bar_volume_none_when_absent() -> None:
+    raw = _make_bar()
+    raw.pop("v", None)
+    bar = _coerce_bar(raw)
+    assert bar.volume is None
+
+
+def test_coerce_bar_symbol_preserved() -> None:
+    bar = _coerce_bar(_make_bar(), symbol="SPY")
+    assert bar.symbol == "SPY"
+
+
+def test_coerce_bar_timestamp_preserved() -> None:
+    ts = "2026-03-30T13:30:00Z"
+    bar = _coerce_bar(_make_bar(t=ts))
+    assert bar.bar_time == ts
+
+
+def test_coerce_bar_missing_open_raises() -> None:
+    from fluxid.alpaca_client import AlpacaApiError
+
+    raw = _make_bar()
+    raw.pop("o")
+    with pytest.raises(AlpacaApiError, match="missing required OHLC"):
+        _coerce_bar(raw)
+
+
+def test_coerce_bar_missing_close_raises() -> None:
+    from fluxid.alpaca_client import AlpacaApiError
+
+    raw = _make_bar()
+    raw.pop("c")
+    with pytest.raises(AlpacaApiError, match="missing required OHLC"):
+        _coerce_bar(raw)
+
+
+def test_coerce_bar_returns_first_minute_bar_instance() -> None:
+    from fluxid.alpaca_client import FirstMinuteBar
+
+    bar = _coerce_bar(_make_bar())
+    assert isinstance(bar, FirstMinuteBar)
+

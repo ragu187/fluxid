@@ -45,7 +45,7 @@ composite = CompositeQuoteProvider(
     india=NeoQuoteProvider(neo),
     us=AlpacaQuoteProvider(alpaca),
 )
-service = DashboardService(neo=neo, composite=composite)
+service = DashboardService(neo=neo, composite=composite, alpaca=alpaca)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -99,6 +99,27 @@ async def option_chain(request: Request) -> HTMLResponse:
             "instruments": instruments,
             "market_open_day": market_open_day,
             "error_message": error_message,
+            "generated_at": datetime.now(),
+            "refresh_seconds": settings.refresh_seconds,
+            "app_name": settings.app_name,
+        },
+    )
+
+
+@app.get("/opening-bar", response_class=HTMLResponse)
+async def opening_bar(request: Request) -> HTMLResponse:
+    """Show the 9:30 AM first-minute OHLC bar for all configured tickers."""
+    from fluxid.market import is_us_market_day
+
+    market_open_day = is_us_market_day()
+    snapshots = await service.load_opening_bar_data()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="opening_bar.html",
+        context={
+            "snapshots": snapshots,
+            "market_open_day": market_open_day,
             "generated_at": datetime.now(),
             "refresh_seconds": settings.refresh_seconds,
             "app_name": settings.app_name,

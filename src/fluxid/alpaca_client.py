@@ -3,6 +3,11 @@
 Uses the Alpaca Data API v2 snapshot endpoint to retrieve last-trade price,
 OHLC, volume and previous-close for a single US stock or ETF symbol.
 
+Also exposes :meth:`AlpacaApiClient.get_first_minute_bar` which fetches the
+9:30 AM opening 1-minute candle (OHLC + volume) for any US stock/ETF using
+the free IEX feed — no paid subscription required.  The bar is a completed
+historical record by 9:31 AM ET, so no streaming connection is needed.
+
 Authentication
 --------------
 Set ``FLUXID_ALPACA_API_KEY_ID`` and ``FLUXID_ALPACA_API_SECRET_KEY`` in the
@@ -10,7 +15,7 @@ environment (or ``.env`` file).
 
 Feed tiers
 ----------
-``feed=iex``  – free tier, 15-minute delayed IEX data (default).
+``feed=iex``  – free tier, IEX data (default).
 ``feed=sip``  – consolidated SIP feed, real-time (requires paid Alpaca plan).
 ``feed=indicative`` – pre/post-market indicative quotes.
 
@@ -20,15 +25,33 @@ Alpaca subscription.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import httpx
 
 from fluxid.neo_client import MarketQuote, QuoteProvider
 
+_ET = ZoneInfo("America/New_York")
+
 
 class AlpacaApiError(RuntimeError):
     pass
+
+
+@dataclass
+class FirstMinuteBar:
+    """OHLC data for the 9:30 AM opening 1-minute candle of a US equity."""
+
+    symbol: str
+    bar_time: str       # ISO-8601 timestamp of the bar open (UTC)
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float | None = None
 
 
 class AlpacaApiClient:
@@ -72,6 +95,57 @@ class AlpacaApiClient:
             raise AlpacaApiError(f"No snapshot returned by Alpaca for {symbol!r}")
         return self._coerce_snapshot(symbol, snap)
 
+    async def get_first_minute_bar(
+        self, symbol: str, trade_date: date | None = None
+    ) -> FirstMinuteBar:
+        """Fetch the 9:30 AM opening 1-minute OHLC bar for *symbol*.
+
+        The bar covering 9:30–9:31 AM US/Eastern is a completed historical
+        record by 9:31 AM, so no real-time streaming subscription is needed —
+        the free Alpaca IEX feed is sufficient.
+
+        Args:
+            symbol:     US stock or ETF ticker, e.g. ``"AAPL"``.
+            trade_date: The session date.  Defaults to today in US/Eastern.
+
+        Returns:
+            A :class:`FirstMinuteBar` with open, high, low, close and volume.
+
+        Raises:
+            :class:`AlpacaApiError`: when the API call fails or no bar data
+            is available for the requested session.
+        """
+        if trade_date is None:
+            trade_date = datetime.now(tz=_ET).date()
+        bar_start = datetime(
+            trade_date.year, trade_date.month, trade_date.day, 9, 30, 0, tzinfo=_ET
+        )
+        bar_end = bar_start + timedelta(minutes=1)
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{self.base_url}/v2/stocks/{symbol}/bars",
+                params={
+                    "timeframe": "1Min",
+                    "start": bar_start.isoformat(),
+                    "end": bar_end.isoformat(),
+                    "limit": 1,
+                    "feed": self.feed,
+                },
+                headers=self._headers,
+            )
+        if response.status_code >= 400:
+            raise AlpacaApiError(
+                f"Alpaca bars API failure for {symbol}: {response.status_code} {response.text[:160]}"
+            )
+        data = response.json()
+        bars = data.get("bars") or []
+        if not bars:
+            raise AlpacaApiError(
+                f"No opening bar returned by Alpaca for {symbol!r} on {trade_date}"
+            )
+        return self._coerce_bar(symbol, bars[0])
+
     def _coerce_snapshot(self, symbol: str, snap: dict[str, Any]) -> MarketQuote:
         """Map an Alpaca snapshot dict to a :class:`~fluxid.neo_client.MarketQuote`.
 
@@ -110,6 +184,37 @@ class AlpacaApiClient:
             high=_to_float(daily_bar.get("h")),
             low=_to_float(daily_bar.get("l")),
             source_payload=snap,
+        )
+
+    def _coerce_bar(self, symbol: str, bar: dict[str, Any]) -> FirstMinuteBar:
+        """Map an Alpaca bar dict to a :class:`FirstMinuteBar`.
+
+        Fields extracted:
+
+        * ``t`` → ``bar_time`` (ISO-8601 timestamp)
+        * ``o`` → ``open``
+        * ``h`` → ``high``
+        * ``l`` → ``low``
+        * ``c`` → ``close``
+        * ``v`` → ``volume``
+        """
+        bar_time = bar.get("t") or ""
+        open_ = _to_float(bar.get("o"))
+        high = _to_float(bar.get("h"))
+        low = _to_float(bar.get("l"))
+        close = _to_float(bar.get("c"))
+        if open_ is None or high is None or low is None or close is None:
+            raise AlpacaApiError(
+                f"Alpaca bar for {symbol!r} missing required OHLC fields: {bar}"
+            )
+        return FirstMinuteBar(
+            symbol=symbol,
+            bar_time=bar_time,
+            open=open_,
+            high=high,
+            low=low,
+            close=close,
+            volume=_to_float(bar.get("v")),
         )
 
 

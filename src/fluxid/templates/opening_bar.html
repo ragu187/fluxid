@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ app_name }} &mdash; Opening Bar OHLC</title>
+    <meta http-equiv="refresh" content="{{ refresh_seconds }}" />
+    <style>
+      body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; }
+      .container { max-width: 960px; margin: 0 auto; padding: 20px; }
+      .card { background: #1e293b; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+
+      /* ── Nav links ── */
+      .nav { margin-bottom: 16px; }
+      .nav a { color: #60a5fa; text-decoration: none; font-size: 13px; margin-right: 16px; }
+      .nav a:hover { text-decoration: underline; }
+
+      /* ── Status badge ── */
+      .status-badge { font-size: 10px; font-weight: 700; border-radius: 999px; padding: 2px 8px; margin-left: 8px; }
+      .status-open   { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+      .status-closed { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+
+      /* ── OHLC table ── */
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th { padding: 6px 10px; border-bottom: 2px solid #334155; text-transform: uppercase;
+           font-size: 10px; letter-spacing: 0.05em; text-align: right; color: #94a3b8; }
+      th:first-child, th:nth-child(2) { text-align: left; }
+      td { padding: 6px 10px; border-bottom: 1px solid #1e293b; text-align: right; white-space: nowrap; }
+      td:first-child { text-align: left; font-weight: 600; color: #e2e8f0; }
+      td:nth-child(2) { text-align: left; font-size: 11px; color: #94a3b8; }
+      tr:last-child td { border-bottom: none; }
+
+      /* price columns */
+      .col-open  { color: #93c5fd; }
+      .col-high  { color: #4ade80; }
+      .col-low   { color: #f87171; }
+      .col-close { color: #fbbf24; font-weight: 700; }
+      .col-vol   { color: #94a3b8; }
+      .col-time  { font-size: 11px; color: #64748b; }
+
+      /* error row */
+      .row-error td { color: #fca5a5; font-style: italic; }
+
+      /* misc */
+      .error { color: #fca5a5; }
+      .muted { color: #94a3b8; font-size: 12px; }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 0; margin-bottom: 12px; font-size: 18px; }
+      .hint { background: #1e293b; border-left: 3px solid #3b82f6; border-radius: 6px;
+              padding: 10px 14px; font-size: 12px; color: #94a3b8; margin-bottom: 16px; }
+      .hint strong { color: #e2e8f0; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="nav">
+        <a href="/">&#8592; Dashboard</a>
+        <a href="/option-chain">Option Chain OHLC</a>
+        <a href="/opening-bar">Opening Bar</a>
+      </div>
+
+      <h1>
+        {{ app_name }} &mdash; Opening Bar OHLC
+        <span class="status-badge {{ 'status-open' if market_open_day else 'status-closed' }}">
+          {{ 'US OPEN' if market_open_day else 'US CLOSED' }}
+        </span>
+      </h1>
+      <p class="muted">
+        First 1-minute candle (9:30–9:31 AM ET) &middot;
+        Generated at {{ generated_at }} &middot;
+        auto-refresh every {{ refresh_seconds }}s
+      </p>
+
+      <div class="hint">
+        <strong>Free data source:</strong> Alpaca IEX feed — no paid subscription required.
+        The 9:30 AM bar is a completed historical record by 9:31 AM ET.
+        Configure tickers via <code>FLUXID_OPENING_BAR_TICKERS</code> and option strikes via
+        <code>FLUXID_OPENING_BAR_OPTION_STRIKES</code> in your <code>.env</code> file.
+      </div>
+
+      {% if snapshots %}
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Name</th>
+              <th>Bar Time (UTC)</th>
+              <th>Open</th>
+              <th>High</th>
+              <th>Low</th>
+              <th>Close</th>
+              <th>Volume</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for snap in snapshots %}
+            {% if snap.error %}
+            <tr class="row-error">
+              <td>{{ snap.symbol }}</td>
+              <td>{{ snap.display_name }}</td>
+              <td colspan="6">{{ snap.error }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td>{{ snap.symbol }}</td>
+              <td>{{ snap.display_name }}</td>
+              <td class="col-time">{{ snap.bar_time if snap.bar_time else '-' }}</td>
+              <td class="col-open">{{ '%.2f'|format(snap.open) if snap.open is not none else '-' }}</td>
+              <td class="col-high">{{ '%.2f'|format(snap.high) if snap.high is not none else '-' }}</td>
+              <td class="col-low">{{ '%.2f'|format(snap.low) if snap.low is not none else '-' }}</td>
+              <td class="col-close">{{ '%.2f'|format(snap.close) if snap.close is not none else '-' }}</td>
+              <td class="col-vol">{{ snap.volume | fmt_volume }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card">
+        <p class="muted">
+          No opening-bar data available.  Add tickers to
+          <code>FLUXID_OPENING_BAR_TICKERS</code> in your <code>.env</code> file and ensure
+          Alpaca credentials are configured.
+        </p>
+      </div>
+      {% endif %}
+
+    </div>
+  </body>
+</html>

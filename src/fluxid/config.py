@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     us_tickers: tuple[str, ...] = ("SPY", "QQQ", "DIA", "IWM", "AAPL", "MSFT", "NVDA", "TSLA")
     enable_us_feed: bool = True
 
+    # Opening-bar feature — first 1-minute OHLC candle (9:30–9:31 AM ET).
+    # Uses the free Alpaca IEX feed; no paid subscription required.
+    # Provide stock/ETF tickers and/or full option-contract symbols supported by Alpaca.
+    opening_bar_tickers: tuple[str, ...] = ("SPY", "QQQ", "AAPL", "MSFT", "NVDA", "TSLA")
+    opening_bar_option_strikes: tuple[str, ...] = ()
+
     # Alpaca Market Data API settings (used for the US feed)
     # Free IEX feed: set alpaca_feed="iex" (15-min delayed, no subscription needed).
     # Real-time SIP feed: set alpaca_feed="sip" (requires a paid Alpaca plan).
@@ -27,7 +33,7 @@ class Settings(BaseSettings):
     alpaca_api_secret_key: str = Field(default="", description="Alpaca API secret key (APCA-API-SECRET-KEY)")
     alpaca_feed: str = Field(default="iex", description="Alpaca data feed: 'iex' (free, delayed) or 'sip' (real-time, paid)")
 
-    @field_validator("india_tickers", "us_tickers", mode="before")
+    @field_validator("india_tickers", "us_tickers", "opening_bar_tickers", "opening_bar_option_strikes", mode="before")
     @classmethod
     def _parse_tickers(cls, value: object) -> tuple[str, ...]:
         if isinstance(value, str):
