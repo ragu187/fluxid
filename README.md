@@ -47,10 +47,17 @@ cp .env.example .env
 Then edit `.env`:
 
 ```env
+# India (Kotak Neo API)
 FLUXID_NEO_API_KEY=your_kotak_neo_api_key
 FLUXID_NEO_TOFT_KEY=optional_toft_key
-# change if your contract uses a different host
 FLUXID_NEO_API_BASE_URL=https://api.kotaksecurities.com/neo
+
+# US (Alpaca Market Data API)
+FLUXID_ALPACA_API_KEY_ID=your_alpaca_key_id
+FLUXID_ALPACA_API_SECRET_KEY=your_alpaca_secret_key
+# iex = free 15-min delayed feed; sip = real-time (paid Alpaca plan required)
+FLUXID_ALPACA_FEED=iex
+
 FLUXID_REFRESH_SECONDS=15
 FLUXID_INDIA_TICKERS=NIFTY_SPOT,BANKNIFTY_SPOT
 FLUXID_US_TICKERS=SPY,QQQ,DIA,IWM,AAPL,MSFT,NVDA,TSLA
@@ -80,7 +87,7 @@ PYTHONPATH=src python -m compileall src tests
 
 ### API contract smoke-test (recommended before market hours)
 
-Use your Neo credentials in `.env`, then quickly verify that your configured API host and auth work.
+**Neo (India feed)** – verify your Kotak Neo credentials:
 
 ```bash
 python - <<'PY'
@@ -102,6 +109,28 @@ PY
 ```
 
 If this fails, update `src/fluxid/neo_client.py` endpoint/query-key mapping to match your account's exact Neo API contract.
+
+**Alpaca (US feed)** – verify your Alpaca credentials:
+
+```bash
+python - <<'PY'
+import asyncio
+from fluxid.config import settings
+from fluxid.alpaca_client import AlpacaApiClient
+
+async def main():
+    client = AlpacaApiClient(
+        base_url=settings.alpaca_data_base_url,
+        key_id=settings.alpaca_api_key_id,
+        secret_key=settings.alpaca_api_secret_key,
+        feed=settings.alpaca_feed,
+    )
+    quote = await client.get_quote("SPY")
+    print("Connected. SPY LTP:", quote.ltp)
+
+asyncio.run(main())
+PY
+```
 
 ## Docker Compose (standardized local run)
 
@@ -133,7 +162,24 @@ If you need Docker for local tooling, use the cross-platform installation steps 
 
 API contracts can vary by account/app version. Fluxid includes a resilient adapter (`NeoApiClient`) with fallback endpoint and query-key attempts. If your account uses different paths, update `NeoApiClient._fetch_quote_payload()` in `src/fluxid/neo_client.py`.
 
-The dashboard intentionally loads data only on market weekdays (evaluated in the Asia/Kolkata exchange timezone).
+The dashboard intentionally loads India instrument data only on market weekdays (evaluated in the Asia/Kolkata exchange timezone).
+
+## Notes for Alpaca API integration (US feed)
+
+US equities data (SPY, QQQ, AAPL, etc.) is fetched via the [Alpaca Market Data API v2](https://docs.alpaca.markets/reference/stocksnapshots).
+
+- **Free tier** (`FLUXID_ALPACA_FEED=iex`): Uses the IEX feed — quotes are approximately 15 minutes delayed but require no paid subscription.
+- **Real-time** (`FLUXID_ALPACA_FEED=sip`): Uses the consolidated SIP feed — requires a paid Alpaca subscription.
+
+The `AlpacaApiClient` calls the `/v2/stocks/snapshots` endpoint once per symbol.  Each snapshot response contains:
+
+| Alpaca field | Maps to `MarketQuote` |
+|---|---|
+| `latestTrade.p` | `ltp` |
+| `dailyBar.o/h/l/v` | `open` / `high` / `low` / `volume` |
+| `latestTrade.p − prevDailyBar.c` | `change` / `pct_change` |
+
+Sign up for a free Alpaca account at <https://alpaca.markets>.
 
 ## Design notes
 

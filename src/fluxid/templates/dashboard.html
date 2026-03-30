@@ -69,6 +69,10 @@
   <body>
     <div class="container">
       <h1>{{ app_name }} live dashboard</h1>
+      <div style="margin-bottom:12px">
+        <a href="/option-chain" style="color:#60a5fa;text-decoration:none;font-size:13px;margin-right:16px">Option Chain OHLC</a>
+        <a href="/opening-bar" style="color:#60a5fa;text-decoration:none;font-size:13px">Opening Bar</a>
+      </div>
       <p class="muted">Generated at {{ generated_at }} &middot; auto-refresh every {{ refresh_seconds }}s</p>
 
       {% if error_message %}

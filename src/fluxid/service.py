@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 
 from fluxid.config import settings
 from fluxid.market import INSTRUMENTS, expand_generic_symbols, is_market_day, is_us_market_day, nearest_strike
-from fluxid.neo_client import MarketQuote, NeoApiClient
+from fluxid.neo_client import CompositeQuoteProvider, MarketQuote, NeoApiClient
+from fluxid.alpaca_client import AlpacaApiClient, AlpacaApiError, FirstMinuteBar
 
 
 @dataclass
@@ -66,6 +67,25 @@ class RegionFeedSnapshot:
     generated_at: datetime
     tickers: list[TickerSnapshot] = field(default_factory=list)
     error_message: str = ""
+
+
+@dataclass
+class OpeningBarSnapshot:
+    """Result of fetching the 9:30 AM first-minute OHLC bar for one symbol.
+
+    *error* is non-empty when the bar could not be fetched (e.g. market not yet
+    open or API failure).  All price fields are ``None`` in that case.
+    """
+
+    symbol: str
+    display_name: str
+    bar_time: str | None
+    open: float | None
+    high: float | None
+    low: float | None
+    close: float | None
+    volume: float | None
+    error: str = ""
 
 
 def _parse_option_symbol(symbol: str) -> tuple[int, str] | None:
@@ -172,9 +192,17 @@ def build_option_chain_ohlc_rows(
 
 
 class DashboardService:
-    def __init__(self, neo: NeoApiClient, option_depth: int = 5) -> None:
+    def __init__(
+        self,
+        neo: NeoApiClient,
+        composite: CompositeQuoteProvider | None = None,
+        option_depth: int = 5,
+        alpaca: AlpacaApiClient | None = None,
+    ) -> None:
         self.neo = neo
+        self.composite = composite
         self.option_depth = option_depth
+        self.alpaca = alpaca
         self._display_names = {
             "NIFTY_SPOT": "NIFTY 50",
             "BANKNIFTY_SPOT": "NIFTY BANK",
@@ -217,7 +245,12 @@ class DashboardService:
             snapshot.error_message = "Market is closed today."
             return snapshot
         try:
-            quotes = await asyncio.gather(*(self.neo.get_quote(symbol) for symbol in symbols))
+            if self.composite is not None:
+                quotes = await asyncio.gather(
+                    *(self.composite.get_quote(symbol, region_code) for symbol in symbols)
+                )
+            else:
+                quotes = await asyncio.gather(*(self.neo.get_quote(symbol) for symbol in symbols))
         except Exception as exc:  # noqa: BLE001 - expose upstream message region-wise.
             snapshot.error_message = str(exc)
             return snapshot
@@ -295,3 +328,53 @@ class DashboardService:
             ohlc_rows = build_option_chain_ohlc_rows(list(option_quotes))
             result.append((instrument.code, instrument.display_name, ohlc_rows))
         return result
+
+    async def load_opening_bar_data(self) -> list[OpeningBarSnapshot]:
+        """Fetch the 9:30 AM first-minute OHLC bar for all configured tickers.
+
+        Tickers come from ``settings.opening_bar_tickers`` (stocks/ETFs) and
+        ``settings.opening_bar_option_strikes`` (optional option contracts in
+        the Alpaca symbol format).  Both lists are merged and fetched
+        concurrently.  Per-symbol errors are captured in
+        :attr:`OpeningBarSnapshot.error` so the page still renders even when
+        some symbols fail.
+
+        Returns:
+            One :class:`OpeningBarSnapshot` per configured symbol, in the
+            order they appear in the configuration.
+        """
+        if self.alpaca is None:
+            return []
+        symbols: list[str] = list(settings.opening_bar_tickers) + list(settings.opening_bar_option_strikes)
+        if not symbols:
+            return []
+
+        async def _fetch(symbol: str) -> OpeningBarSnapshot:
+            display = self._display_names.get(symbol, symbol)
+            try:
+                bar: FirstMinuteBar = await self.alpaca.get_first_minute_bar(symbol)  # type: ignore[union-attr]
+                return OpeningBarSnapshot(
+                    symbol=symbol,
+                    display_name=display,
+                    bar_time=bar.bar_time,
+                    open=bar.open,
+                    high=bar.high,
+                    low=bar.low,
+                    close=bar.close,
+                    volume=bar.volume,
+                )
+            except (AlpacaApiError, Exception) as exc:  # noqa: BLE001
+                return OpeningBarSnapshot(
+                    symbol=symbol,
+                    display_name=display,
+                    bar_time=None,
+                    open=None,
+                    high=None,
+                    low=None,
+                    close=None,
+                    volume=None,
+                    error=str(exc),
+                )
+
+        results = await asyncio.gather(*(_fetch(sym) for sym in symbols))
+        return list(results)
